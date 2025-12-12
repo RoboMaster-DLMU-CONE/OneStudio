@@ -4,6 +4,36 @@ use std::process::{Command, Stdio};
 use std::thread;
 use tauri::{AppHandle, Emitter};
 
+fn setup_pip_source(app: &AppHandle, install_path: &str, venv_python: &str) -> Result<(), String> {
+    // First, upgrade pip with the USTC mirror
+    emit_log(app, "Upgrading pip with USTC source...");
+    run_command_stream(
+        app,
+        venv_python,
+        &[
+            "-m", "pip", "install",
+            "-i", "https://mirrors.ustc.edu.cn/pypi/simple",
+            "pip", "-U"
+        ],
+        Some(install_path),
+    )?;
+
+    // Configure pip to use USTC mirror permanently in this venv
+    emit_log(app, "Setting pip config to USTC source...");
+    run_command_stream(
+        app,
+        venv_python,
+        &[
+            "-m", "pip", "config", "set",
+            "global.index-url",
+            "https://mirrors.ustc.edu.cn/pypi/simple"
+        ],
+        Some(install_path),
+    )?;
+
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn install_zephyr(
     app: AppHandle,
@@ -38,7 +68,11 @@ pub async fn install_zephyr(
 
     let venv_python_str = venv_python.to_string_lossy().to_string();
 
-    // 2. Install west
+    // 2. Configure pip source before installing packages
+    emit_log(&app, "Configuring pip source to USTC mirror...");
+    setup_pip_source(&app, &install_path, &venv_python_str)?;
+
+    // 3. Install west
     emit_log(&app, "Installing west...");
     run_command_stream(
         &app,

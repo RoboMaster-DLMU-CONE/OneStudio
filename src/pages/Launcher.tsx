@@ -3,7 +3,8 @@ import { useProjectStore } from "@/store/useProjectStore";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Plus, FolderOpen, Settings } from "lucide-react";
+import { Plus, FolderOpen, Settings, ExternalLink } from "lucide-react";
+import { open } from '@tauri-apps/plugin-shell';
 import Onboarding from "./launcher/Onboarding";
 import RecentProjects from "./launcher/RecentProjects";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -105,24 +106,6 @@ export default function Launcher() {
           <StatusItem label="Zephyr SDK" active={envStatus.sdk} />
         </div>
 
-        <div className="mt-auto">
-          <Card>
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm font-medium">当前配置</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0 text-xs text-muted-foreground space-y-2">
-              <Separator className="mb-2" />
-              <div className="flex justify-between">
-                <span className="font-semibold">SDK:</span>
-                <span>{config.zephyr_base ? "已配置" : "未配置"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="font-semibold">Venv:</span>
-                <span>{config.venv_path ? "已配置" : "未配置"}</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   );

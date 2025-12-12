@@ -8,16 +8,16 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
 import { useProjectStore } from "@/store/useProjectStore";
 import { CheckCircle2, XCircle, AlertCircle, RefreshCw, FolderOpen, Terminal as TerminalIcon, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Terminal from "@/components/terminal/Terminal";
+import { toast } from "sonner";
 
 export default function Onboarding({ onComplete }: { onComplete: () => void }) {
-  const { envReport, setEnvReport, config, setConfig } = useProjectStore();
+  const { envReport, setEnvReport, config, setConfig, setEnvStatus } = useProjectStore();
   const [activeTab, setActiveTab] = useState<"check" | "setup">("check");
   const [checking, setChecking] = useState(false);
   const [zephyrPath, setZephyrPath] = useState(config.zephyr_base || "");
@@ -54,6 +54,11 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
       // Refresh config
       const newConfig = await invoke<any>("get_config");
       setConfig(newConfig);
+
+      // Update environment status after config changes
+      const status = await invoke<any>("check_environment");
+      setEnvStatus(status);
+
       onComplete();
     } catch (e) {
       console.error("Failed to save config", e);
@@ -61,7 +66,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
   };
 
   const handlePickZephyrPath = async () => {
-    const selected = await open({
+    const selected = await openDialog({
       directory: true,
       multiple: false,
       title: "选择 Zephyr SDK 路径"
@@ -72,7 +77,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
   };
 
   const handlePickVenvPath = async () => {
-    const selected = await open({
+    const selected = await openDialog({
       directory: true,
       multiple: false,
       title: "选择 Python 虚拟环境路径"
@@ -83,7 +88,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
   };
 
   const handlePickInstallPath = async () => {
-    const selected = await open({
+    const selected = await openDialog({
       directory: true,
       multiple: false,
       title: "选择 Zephyr 安装位置 (空文件夹)"
@@ -94,7 +99,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
   };
 
   const handlePickSdkInstallPath = async () => {
-    const selected = await open({
+    const selected = await openDialog({
       directory: true,
       multiple: false,
       title: "选择 SDK 安装位置"
@@ -106,7 +111,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
 
   const handleInstallZephyr = async () => {
     if (!installPath) {
-      alert("请选择安装路径");
+      toast.error("请选择安装路径");
       return;
     }
     setInstalling(true);
@@ -117,12 +122,12 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
         sdkPath: sdkInstallPath || null,
         shadowClone
       });
-      alert("安装完成！请手动配置路径。");
+      toast.success("安装完成！请手动配置路径。");
       // Auto-fill paths if successful
       setZephyrPath(installPath + "/zephyr");
       setVenvPath(installPath + "/.venv");
     } catch (e) {
-      alert("安装失败: " + e);
+      toast.error("安装失败: " + e);
     } finally {
       setInstalling(false);
     }
@@ -145,6 +150,16 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
           </CardHeader>
 
           <CardContent className="pt-6 min-h-[400px]">
+            <div className="flex justify-start mb-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => open("https://bing.com.cn")}
+              >
+                下载速度缓慢?
+                <ExternalLink className="ml-2 h-3 w-3" />
+              </Button>
+            </div>
             <TabsContent value="check" className="mt-0 space-y-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">检测到的系统: {envReport?.os || "Unknown"}</h3>
@@ -153,9 +168,9 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
                     <Button variant="default" size="sm" onClick={async () => {
                       try {
                         await invoke("install_dependencies");
-                        alert("已启动安装程序。请在弹出的终端窗口中完成安装，然后点击“重新检测”。");
+                        toast.info("已启动安装程序。请在弹出的终端窗口中完成安装，然后点击“重新检测”。");
                       } catch (e) {
-                        alert("启动安装失败: " + e);
+                        toast.error("启动安装失败: " + e);
                       }
                     }}>
                       一键安装缺失依赖
@@ -233,9 +248,24 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
                       <FolderOpen className="h-4 w-4" />
                     </Button>
                   </div>
-                  <p className="text-[0.8rem] text-muted-foreground">
-                    Zephyr 项目使用的 Python 虚拟环境路径。
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[0.8rem] text-muted-foreground">
+                      Zephyr 项目使用的 Python 虚拟环境路径。
+                    </p>
+                    <a
+                      href="https://bing.com.cn"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[0.8rem] text-muted-foreground hover:text-foreground flex items-center gap-1"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        open("https://bing.com.cn");
+                      }}
+                    >
+                      找不到.venv文件夹？
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
                 </div>
               </div>
 
@@ -248,8 +278,8 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="w-full">
-                    <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 mt-3 w-full">
-                      <AlertDescription className="text-blue-700 dark:text-blue-300">
+                    <div className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 mt-3 w-full rounded-md p-4 border">
+                      <div className="text-blue-700 dark:text-blue-300">
                         <p className="mb-3">
                           如果您是第一次使用，我们可以帮助您自动下载并配置 Zephyr SDK 和依赖项。
                         </p>
@@ -308,18 +338,9 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
                             {installing ? <RefreshCw className="mr-2 h-3 w-3 animate-spin" /> : <TerminalIcon className="mr-2 h-3 w-3" />}
                             {installing ? "安装中..." : "开始安装 Zephyr"}
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full mt-2"
-                            onClick={() => open("https://bing.com.cn")}
-                          >
-                            下载速度缓慢?
-                            <ExternalLink className="ml-2 h-3 w-3" />
-                          </Button>
                         </div>
-                      </AlertDescription>
-                    </Alert>
+                      </div>
+                    </div>
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
