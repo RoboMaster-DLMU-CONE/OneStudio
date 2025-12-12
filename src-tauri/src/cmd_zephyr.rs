@@ -1,11 +1,16 @@
-use std::process::{Command, Stdio};
-use std::path::Path;
-use tauri::{AppHandle, Emitter};
 use std::io::{BufRead, BufReader};
+use std::path::Path;
+use std::process::{Command, Stdio};
 use std::thread;
+use tauri::{AppHandle, Emitter};
 
 #[tauri::command]
-pub async fn install_zephyr(app: AppHandle, install_path: String, sdk_path: Option<String>, shadow_clone: bool) -> Result<(), String> {
+pub async fn install_zephyr(
+    app: AppHandle,
+    install_path: String,
+    sdk_path: Option<String>,
+    shadow_clone: bool,
+) -> Result<(), String> {
     let path = Path::new(&install_path);
     if !path.exists() {
         std::fs::create_dir_all(path).map_err(|e| e.to_string())?;
@@ -18,19 +23,29 @@ pub async fn install_zephyr(app: AppHandle, install_path: String, sdk_path: Opti
     #[cfg(not(target_os = "windows"))]
     let python_cmd = "python3";
 
-    run_command_stream(&app, python_cmd, &["-m", "venv", ".venv"], Some(&install_path))?;
+    run_command_stream(
+        &app,
+        python_cmd,
+        &["-m", "venv", ".venv"],
+        Some(&install_path),
+    )?;
 
     // Resolve venv python path
     #[cfg(target_os = "windows")]
     let venv_python = path.join(".venv").join("Scripts").join("python.exe");
     #[cfg(not(target_os = "windows"))]
     let venv_python = path.join(".venv").join("bin").join("python");
-    
+
     let venv_python_str = venv_python.to_string_lossy().to_string();
 
     // 2. Install west
     emit_log(&app, "Installing west...");
-    run_command_stream(&app, &venv_python_str, &["-m", "pip", "install", "west"], Some(&install_path))?;
+    run_command_stream(
+        &app,
+        &venv_python_str,
+        &["-m", "pip", "install", "west"],
+        Some(&install_path),
+    )?;
 
     // 3. West init
     emit_log(&app, "Initializing west workspace...");
@@ -62,7 +77,7 @@ pub async fn install_zephyr(app: AppHandle, install_path: String, sdk_path: Opti
     // Or maybe west init allows .venv?
     // Let's try running `west init .` using the venv's west.
     // The venv's west executable is in .venv/bin/west or .venv/Scripts/west.exe
-    
+
     #[cfg(target_os = "windows")]
     let venv_west = path.join(".venv").join("Scripts").join("west.exe");
     #[cfg(not(target_os = "windows"))]
@@ -86,11 +101,21 @@ pub async fn install_zephyr(app: AppHandle, install_path: String, sdk_path: Opti
 
     // 5. Zephyr export
     emit_log(&app, "Exporting Zephyr CMake package...");
-    run_command_stream(&app, &venv_west_str, &["zephyr-export"], Some(&install_path))?;
+    run_command_stream(
+        &app,
+        &venv_west_str,
+        &["zephyr-export"],
+        Some(&install_path),
+    )?;
 
     // 6. Install python dependencies
     emit_log(&app, "Installing Python dependencies...");
-    run_command_stream(&app, &venv_west_str, &["packages", "pip", "--install"], Some(&install_path))?;
+    run_command_stream(
+        &app,
+        &venv_west_str,
+        &["packages", "pip", "--install"],
+        Some(&install_path),
+    )?;
 
     // 7. SDK Install
     // If sdk_path is provided, we might want to use it.
@@ -103,7 +128,7 @@ pub async fn install_zephyr(app: AppHandle, install_path: String, sdk_path: Opti
         sdk_args.push("-d");
         sdk_args.push(s);
     }
-    
+
     // We need to run this inside zephyrproject/zephyr usually?
     // Guide says: cd ~/zephyrproject/zephyr; west sdk install
     let zephyr_repo_path = path.join("zephyr");
@@ -119,10 +144,15 @@ fn emit_log(app: &AppHandle, msg: &str) {
     let _ = app.emit("term-data", format!("{}\r\n", msg));
 }
 
-fn run_command_stream(app: &AppHandle, cmd: &str, args: &[&str], cwd: Option<&str>) -> Result<(), String> {
+fn run_command_stream(
+    app: &AppHandle,
+    cmd: &str,
+    args: &[&str],
+    cwd: Option<&str>,
+) -> Result<(), String> {
     let mut command = Command::new(cmd);
     command.args(args);
-    
+
     if let Some(path) = cwd {
         command.current_dir(Path::new(path));
     }
@@ -138,13 +168,21 @@ fn run_command_stream(app: &AppHandle, cmd: &str, args: &[&str], cwd: Option<&st
         } else {
             Path::new(path).join(".venv").join("bin")
         };
-        
+
         if let Ok(path_var) = std::env::var("PATH") {
-            let new_path = format!("{}{}{}", venv_bin.to_string_lossy(), if cfg!(windows) { ";" } else { ":" }, path_var);
+            let new_path = format!(
+                "{}{}{}",
+                venv_bin.to_string_lossy(),
+                if cfg!(windows) { ";" } else { ":" },
+                path_var
+            );
             command.env("PATH", new_path);
         }
         // Also set VIRTUAL_ENV
-        command.env("VIRTUAL_ENV", Path::new(path).join(".venv").to_string_lossy().to_string());
+        command.env(
+            "VIRTUAL_ENV",
+            Path::new(path).join(".venv").to_string_lossy().to_string(),
+        );
     }
 
     command.stdout(Stdio::piped());
@@ -158,7 +196,9 @@ fn run_command_stream(app: &AppHandle, cmd: &str, args: &[&str], cwd: Option<&st
         command.creation_flags(CREATE_NO_WINDOW);
     }
 
-    let mut child = command.spawn().map_err(|e| format!("Failed to spawn {}: {}", cmd, e))?;
+    let mut child = command
+        .spawn()
+        .map_err(|e| format!("Failed to spawn {}: {}", cmd, e))?;
 
     let stdout = child.stdout.take().ok_or("Failed to open stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to open stderr")?;
@@ -184,7 +224,7 @@ fn run_command_stream(app: &AppHandle, cmd: &str, args: &[&str], cwd: Option<&st
     });
 
     let status = child.wait().map_err(|e| e.to_string())?;
-    
+
     if status.success() {
         Ok(())
     } else {

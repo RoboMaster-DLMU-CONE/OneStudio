@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
+import { open } from '@tauri-apps/plugin-shell';
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,7 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
 import { useProjectStore } from "@/store/useProjectStore";
-import { CheckCircle2, XCircle, AlertCircle, RefreshCw, FolderOpen, Terminal as TerminalIcon } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, RefreshCw, FolderOpen, Terminal as TerminalIcon, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Terminal from "@/components/terminal/Terminal";
 
@@ -21,7 +22,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
   const [checking, setChecking] = useState(false);
   const [zephyrPath, setZephyrPath] = useState(config.zephyr_base || "");
   const [venvPath, setVenvPath] = useState(config.venv_path || "");
-  
+
   // Installation state
   const [installing, setInstalling] = useState(false);
   const [installPath, setInstallPath] = useState("");
@@ -49,7 +50,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
     try {
       if (zephyrPath) await invoke("set_zephyr_path", { path: zephyrPath });
       if (venvPath) await invoke("set_venv_path", { path: venvPath });
-      
+
       // Refresh config
       const newConfig = await invoke<any>("get_config");
       setConfig(newConfig);
@@ -142,7 +143,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
               <TabsTrigger value="setup">2. Zephyr 环境配置</TabsTrigger>
             </TabsList>
           </CardHeader>
-          
+
           <CardContent className="pt-6 min-h-[400px]">
             <TabsContent value="check" className="mt-0 space-y-4">
               <div className="flex items-center justify-between mb-4">
@@ -166,7 +167,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
                   </Button>
                 </div>
               </div>
-              
+
               <ScrollArea className="h-[300px] rounded-md border p-4">
                 <div className="grid gap-3">
                   {envReport?.dependencies.map((dep) => (
@@ -306,6 +307,15 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
                           >
                             {installing ? <RefreshCw className="mr-2 h-3 w-3 animate-spin" /> : <TerminalIcon className="mr-2 h-3 w-3" />}
                             {installing ? "安装中..." : "开始安装 Zephyr"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full mt-2"
+                            onClick={() => open("https://bing.com.cn")}
+                          >
+                            下载速度缓慢?
+                            <ExternalLink className="ml-2 h-3 w-3" />
                           </Button>
                         </div>
                       </AlertDescription>
