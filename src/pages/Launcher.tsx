@@ -1,10 +1,43 @@
 import { Button } from "@/components/ui/button";
 import { useProjectStore } from "@/store/useProjectStore";
 import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 
 export default function Launcher() {
   const navigate = useNavigate();
-  const { envStatus, setProjectPath } = useProjectStore();
+  const { envStatus, setEnvStatus, setProjectPath } = useProjectStore();
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    checkEnv();
+  }, []);
+
+  const checkEnv = async () => {
+    try {
+      const status = await invoke<{
+        git: boolean;
+        python: boolean;
+        west: boolean;
+        sdk: boolean;
+      }>("check_environment");
+      setEnvStatus(status);
+    } catch (error) {
+      console.error("Failed to check environment:", error);
+    }
+  };
+
+  const handleFixEnvironment = async () => {
+    setLoading(true);
+    try {
+      await invoke("fix_environment");
+      await checkEnv();
+    } catch (error) {
+      console.error("Failed to fix environment:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleOpenProject = () => {
     // TODO: 实现文件选择器
@@ -12,6 +45,8 @@ export default function Launcher() {
     setProjectPath("/path/to/project");
     navigate("/dashboard");
   };
+
+  const allGood = Object.values(envStatus).every(Boolean);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
@@ -41,6 +76,17 @@ export default function Launcher() {
               <span>{envStatus.sdk ? "✅" : "❌"}</span>
             </div>
           </div>
+          
+          {!allGood && (
+            <Button 
+              className="mt-4 w-full" 
+              variant="destructive" 
+              onClick={handleFixEnvironment}
+              disabled={loading}
+            >
+              {loading ? "修复中..." : "一键修复环境"}
+            </Button>
+          )}
         </div>
 
         <div className="space-y-4">
