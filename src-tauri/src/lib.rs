@@ -11,7 +11,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             env_manager::check_environment,
             env_manager::check_dependencies,
-            env_manager::fix_environment,
+            env_manager::install_dependencies,
             cmd_west::run_west_command,
             cmd_west::run_west_stream,
             cmd_west::west_init,

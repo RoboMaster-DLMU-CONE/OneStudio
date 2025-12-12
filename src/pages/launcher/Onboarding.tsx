@@ -68,10 +68,27 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
             <TabsContent value="check" className="mt-0 space-y-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">检测到的系统: {envReport?.os || "Unknown"}</h3>
-                <Button variant="outline" size="sm" onClick={runCheck} disabled={checking}>
-                  <RefreshCw className={cn("mr-2 h-4 w-4", checking && "animate-spin")} />
-                  重新检测
-                </Button>
+                <div className="flex gap-2">
+                  {!envReport?.all_satisfied && (
+                    <Button variant="default" size="sm" onClick={async () => {
+                      try {
+                        await invoke("install_dependencies");
+                        // Wait a bit for user to complete installation in terminal
+                        // In reality, we can't easily know when the external terminal closes without more complex logic.
+                        // For now, user has to manually click "Refresh" after they are done.
+                        alert("已启动安装程序。请在弹出的终端窗口中完成安装，然后点击“重新检测”。");
+                      } catch (e) {
+                        alert("启动安装失败: " + e);
+                      }
+                    }}>
+                      一键安装缺失依赖
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={runCheck} disabled={checking}>
+                    <RefreshCw className={cn("mr-2 h-4 w-4", checking && "animate-spin")} />
+                    重新检测
+                  </Button>
+                </div>
               </div>
 
               <ScrollArea className="h-[300px] rounded-md border p-4">

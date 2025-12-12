@@ -88,13 +88,183 @@ pub async fn check_dependencies() -> EnvReport {
 }
 
 #[tauri::command]
-pub async fn fix_environment() -> Result<String, String> {
-    // Stub implementation
-    // In a real scenario, this would download and install dependencies.
-    // Simulating a delay
-    std::thread::sleep(std::time::Duration::from_secs(2));
+pub async fn install_dependencies(app: AppHandle) -> Result<(), String> {
+    let report = check_dependencies().await;
+    let missing_deps: Vec<&Dependency> = report.dependencies.iter().filter(|d| !d.installed).collect();
+
+    if missing_deps.is_empty() {
+        return Ok(());
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        install_linux_dependencies(app, &missing_deps).await
+    }
+    #[cfg(target_os = "windows")]
+    {
+        install_windows_dependencies(app, &missing_deps).await
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    {
+        Err("Unsupported operating system".to_string())
+    }
+}
+
+#[cfg(target_os = "linux")]
+async fn install_linux_dependencies(_app: AppHandle, missing: &[&Dependency]) -> Result<(), String> {
+    // Detect distro
+    let release = std::fs::read_to_string("/etc/os-release").unwrap_or_default();
+    let is_fedora = release.to_lowercase().contains("fedora");
     
-    Ok("Environment fixed (Simulation)".to_string())
+    let mut packages = Vec::new();
+
+    for dep in missing {
+        let pkgs: Option<Vec<&str>> = if is_fedora {
+            match dep.name.as_str() {
+                "Git" => Some(vec!["git"]),
+                "CMake" => Some(vec!["cmake"]),
+                "Ninja" => Some(vec!["ninja-build"]),
+                "Gperf" => Some(vec!["gperf"]),
+                "CCache" => Some(vec!["ccache"]),
+                "Dfu-util" => Some(vec!["dfu-util"]),
+                "DTC" => Some(vec!["dtc"]),
+                "Wget" => Some(vec!["wget"]),
+                "Python 3" => Some(vec!["python3"]),
+                "XZ Utils" => Some(vec!["xz"]),
+                "File" => Some(vec!["file"]),
+                "Make" => Some(vec!["make"]),
+                "GCC" => Some(vec!["gcc"]),
+                "G++" => Some(vec!["gcc-c++"]),
+                "python3-dev" => Some(vec!["python3-devel"]),
+                "python3-venv" => Some(vec!["python3"]), // Usually in python3 core or python3-libs
+                "python3-tk" => Some(vec!["python3-tkinter"]),
+                "libsdl2-dev" => Some(vec!["sdl2-compat-devel"]),
+                "libmagic1" => Some(vec!["file-libs"]),
+                "gcc-multilib" => Some(vec!["glibc-devel.i686"]),
+                "g++-multilib" => Some(vec!["libstdc++-devel.i686"]),
+                _ => None,
+            }
+        } else {
+            // Ubuntu/Debian
+            match dep.name.as_str() {
+                "Git" => Some(vec!["git"]),
+                "CMake" => Some(vec!["cmake"]),
+                "Ninja" => Some(vec!["ninja-build"]),
+                "Gperf" => Some(vec!["gperf"]),
+                "CCache" => Some(vec!["ccache"]),
+                "Dfu-util" => Some(vec!["dfu-util"]),
+                "DTC" => Some(vec!["device-tree-compiler"]),
+                "Wget" => Some(vec!["wget"]),
+                "Python 3" => Some(vec!["python3"]),
+                "XZ Utils" => Some(vec!["xz-utils"]),
+                "File" => Some(vec!["file"]),
+                "Make" => Some(vec!["make"]),
+                "GCC" => Some(vec!["gcc"]),
+                "G++" => Some(vec!["g++"]),
+                "python3-dev" => Some(vec!["python3-dev"]),
+                "python3-venv" => Some(vec!["python3-venv"]),
+                "python3-tk" => Some(vec!["python3-tk"]),
+                "libsdl2-dev" => Some(vec!["libsdl2-dev"]),
+                "libmagic1" => Some(vec!["libmagic1"]),
+                "gcc-multilib" => Some(vec!["gcc-multilib"]),
+                "g++-multilib" => Some(vec!["g++-multilib"]),
+                _ => None,
+            }
+        };
+
+        if let Some(p) = pkgs {
+            packages.extend(p.iter().map(|s| s.to_string()));
+        }
+    }
+
+    if packages.is_empty() {
+        return Ok(());
+    }
+
+    let cmd = if is_fedora { "dnf" } else { "apt" };
+    let mut args = if is_fedora {
+        vec!["install", "-y"]
+    } else {
+        vec!["install", "-y", "--no-install-recommends"]
+    };
+    
+    let pkg_refs: Vec<&str> = packages.iter().map(|s| s.as_str()).collect();
+    args.extend(pkg_refs);
+
+    // Construct the full command string for display
+    let full_cmd = format!("sudo {} {}", cmd, args.join(" "));
+
+    // Try to launch a terminal to run the command with sudo
+    let terminals = ["gnome-terminal", "konsole", "xfce4-terminal", "xterm"];
+    
+    for term in terminals {
+        if which::which(term).is_ok() {
+            let mut command = Command::new(term);
+            
+            match term {
+                "gnome-terminal" | "xfce4-terminal" => {
+                    command.args(&["--", "bash", "-c", &format!("{}; echo 'Press Enter to close...'; read", full_cmd)]);
+                },
+                "konsole" => {
+                    command.args(&["-e", "bash", "-c", &format!("{}; echo 'Press Enter to close...'; read", full_cmd)]);
+                },
+                "xterm" => {
+                    command.args(&["-e", "bash", "-c", &format!("{}; echo 'Press Enter to close...'; read", full_cmd)]);
+                },
+                _ => continue,
+            }
+
+            return command.spawn()
+                .map(|_| ())
+                .map_err(|e| format!("Failed to launch terminal: {}", e));
+        }
+    }
+
+    Err("No supported terminal emulator found. Please install dependencies manually.".to_string())
+}
+
+#[cfg(target_os = "windows")]
+async fn install_windows_dependencies(_app: AppHandle, missing: &[&Dependency]) -> Result<(), String> {
+    let mut packages = Vec::new();
+
+    for dep in missing {
+        let pkg = match dep.name.as_str() {
+            "CMake" => Some("Kitware.CMake"),
+            "Ninja" => Some("Ninja-build.Ninja"),
+            "Gperf" => Some("oss-winget.gperf"),
+            "Python 3.12" => Some("Python.Python.3.12"),
+            "Git" => Some("Git.Git"),
+            "DTC" => Some("oss-winget.dtc"),
+            "Wget" => Some("wget"),
+            "7-Zip" => Some("7zip.7zip"),
+            _ => None,
+        };
+
+        if let Some(p) = pkg {
+            packages.push(p);
+        }
+    }
+
+    if packages.is_empty() {
+        return Ok(());
+    }
+
+    let install_cmds: Vec<String> = packages.iter()
+        .map(|p| format!("winget install {}", p))
+        .collect();
+    
+    let install_script = install_cmds.join("; ");
+
+    let ps_command = format!(
+        "winget source remove winget; winget source add winget https://mirrors.ustc.edu.cn/winget-source --trust-level trusted; {}; Read-Host 'Press Enter to exit'",
+        install_script
+    );
+
+    Command::new("powershell")
+        .args(&["Start-Process", "powershell", "-Verb", "RunAs", "-ArgumentList", &format!("\"-NoExit -Command {}\"", ps_command)])
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("Failed to launch PowerShell: {}", e))
 }
 
 fn check_command(cmd: &str, args: &[&str]) -> bool {
