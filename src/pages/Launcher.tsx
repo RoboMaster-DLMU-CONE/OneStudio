@@ -3,101 +3,140 @@ import { useProjectStore } from "@/store/useProjectStore";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { Plus, FolderOpen, Settings } from "lucide-react";
+import Onboarding from "./launcher/Onboarding";
+import RecentProjects from "./launcher/RecentProjects";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 export default function Launcher() {
   const navigate = useNavigate();
-  const { envStatus, setEnvStatus, setProjectPath } = useProjectStore();
-  const [loading, setLoading] = useState(false);
+  const { config, setConfig, setProjectPath, envStatus, setEnvStatus } = useProjectStore();
+  const [loading, setLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
-    checkEnv();
+    const init = async () => {
+      try {
+        const cfg = await invoke<any>("get_config");
+        setConfig(cfg);
+
+        // Check if we need onboarding
+        // If no zephyr path is set AND no recent projects, assume new user
+        if (!cfg.zephyr_base && cfg.recent_projects.length === 0) {
+          setShowOnboarding(true);
+        } else {
+          // Run a quick env check for the badges
+          const status = await invoke<any>("check_environment");
+          setEnvStatus(status);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
   }, []);
 
-  const checkEnv = async () => {
-    try {
-      const status = await invoke<{
-        git: boolean;
-        python: boolean;
-        west: boolean;
-        sdk: boolean;
-      }>("check_environment");
-      setEnvStatus(status);
-    } catch (error) {
-      console.error("Failed to check environment:", error);
-    }
-  };
-
-  const handleFixEnvironment = async () => {
-    setLoading(true);
-    try {
-      await invoke("fix_environment");
-      await checkEnv();
-    } catch (error) {
-      console.error("Failed to fix environment:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleOpenProject = () => {
-    // TODO: 实现文件选择器
+    // TODO: Implement file picker
     console.log("打开项目被点击");
-    setProjectPath("/path/to/project");
+    const mockPath = "/home/user/projects/MyHeroRobot";
+    setProjectPath(mockPath);
+
+    // Add to recent
+    invoke("add_recent_project", { path: mockPath }).then(() => {
+      // Refresh config not strictly needed if we navigate away, but good practice
+    });
+
     navigate("/dashboard");
   };
 
-  const allGood = Object.values(envStatus).every(Boolean);
+  if (loading) {
+    return <div className="flex h-screen items-center justify-center">Loading...</div>;
+  }
+
+  if (showOnboarding) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
+        <Onboarding onComplete={() => setShowOnboarding(false)} />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
+    <div className="flex min-h-screen bg-background">
+      {/* Left Panel: Projects */}
+      <div className="flex w-full max-w-3xl flex-col p-12">
+        <div className="mb-12">
           <h1 className="text-4xl font-bold tracking-tight text-primary">OneStudio</h1>
           <p className="mt-2 text-muted-foreground">RoboMaster 嵌入式开发环境</p>
         </div>
 
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold">环境检查</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center justify-between rounded-md border p-2">
-              <span>Git</span>
-              <span>{envStatus.git ? "✅" : "❌"}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-md border p-2">
-              <span>Python</span>
-              <span>{envStatus.python ? "✅" : "❌"}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-md border p-2">
-              <span>West</span>
-              <span>{envStatus.west ? "✅" : "⚠️"}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-md border p-2">
-              <span>SDK</span>
-              <span>{envStatus.sdk ? "✅" : "❌"}</span>
-            </div>
-          </div>
-          
-          {!allGood && (
-            <Button 
-              className="mt-4 w-full" 
-              variant="destructive" 
-              onClick={handleFixEnvironment}
-              disabled={loading}
-            >
-              {loading ? "修复中..." : "一键修复环境"}
-            </Button>
-          )}
-        </div>
-
-        <div className="space-y-4">
-          <Button className="w-full" size="lg" onClick={() => console.log("新建项目")}>
+        <div className="mb-8 flex gap-4">
+          <Button size="lg" className="gap-2" onClick={() => console.log("New Project")}>
+            <Plus className="h-5 w-5" />
             新建项目
           </Button>
-          <Button variant="outline" className="w-full" size="lg" onClick={handleOpenProject}>
+          <Button variant="outline" size="lg" className="gap-2" onClick={handleOpenProject}>
+            <FolderOpen className="h-5 w-5" />
             打开项目
           </Button>
         </div>
+
+        <RecentProjects />
+      </div>
+
+      {/* Right Panel: Environment Status */}
+      <div className="flex w-80 flex-col border-l bg-muted/10 p-8">
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="font-semibold">环境状态</h3>
+          <Button variant="ghost" size="icon" onClick={() => setShowOnboarding(true)}>
+            <Settings className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="space-y-3">
+          <StatusItem label="Git" active={envStatus.git} />
+          <StatusItem label="Python" active={envStatus.python} />
+          <StatusItem label="West" active={envStatus.west} />
+          <StatusItem label="Zephyr SDK" active={envStatus.sdk} />
+        </div>
+
+        <div className="mt-auto">
+          <Card>
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-sm font-medium">当前配置</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 text-xs text-muted-foreground space-y-2">
+              <Separator className="mb-2" />
+              <div className="flex justify-between">
+                <span className="font-semibold">SDK:</span>
+                <span>{config.zephyr_base ? "已配置" : "未配置"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-semibold">Venv:</span>
+                <span>{config.venv_path ? "已配置" : "未配置"}</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
+  );
+}
+
+function StatusItem({ label, active }: { label: string; active: boolean }) {
+  return (
+    <Card className="shadow-sm">
+      <CardContent className="flex items-center justify-between pl-3 py-1">
+        <span className="text-sm font-medium">{label}</span>
+        <Badge variant={active ? "default" : "destructive"} className={active ? "bg-green-500 hover:bg-green-600" : ""}>
+          {active ? "正常" : "异常"}
+        </Badge>
+      </CardContent>
+    </Card>
   );
 }

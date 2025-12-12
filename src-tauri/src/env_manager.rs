@@ -27,7 +27,7 @@ pub struct EnvReport {
 }
 
 #[tauri::command]
-pub fn check_environment(app: AppHandle) -> EnvStatus {
+pub async fn check_environment(app: AppHandle) -> EnvStatus {
     let config = config_manager::get_config(app).unwrap_or_default();
     
     // Use configured venv python if available, otherwise system python
@@ -68,7 +68,7 @@ pub fn check_environment(app: AppHandle) -> EnvStatus {
 }
 
 #[tauri::command]
-pub fn check_dependencies() -> EnvReport {
+pub async fn check_dependencies() -> EnvReport {
     #[cfg(target_os = "windows")]
     {
         check_windows_dependencies()
@@ -147,6 +147,23 @@ fn check_dpkg(package: &str) -> Dependency {
 }
 
 #[cfg(target_os = "linux")]
+fn check_shell_dependency(name: &str, cmd: &str) -> Dependency {
+    let installed = Command::new("sh")
+        .arg("-c")
+        .arg(cmd)
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false);
+
+    Dependency {
+        name: name.to_string(),
+        installed,
+        version: None,
+        critical: true,
+    }
+}
+
+#[cfg(target_os = "linux")]
 fn check_linux_dependencies() -> EnvReport {
     let mut deps = Vec::new();
     
@@ -166,14 +183,27 @@ fn check_linux_dependencies() -> EnvReport {
     deps.push(check_binary("GCC", "gcc", "--version"));
     deps.push(check_binary("G++", "g++", "--version"));
 
-    // Libraries (Debian/Ubuntu specific)
-    deps.push(check_dpkg("python3-dev"));
-    deps.push(check_dpkg("python3-venv"));
-    deps.push(check_dpkg("python3-tk"));
-    deps.push(check_dpkg("libsdl2-dev"));
-    deps.push(check_dpkg("libmagic1"));
-    deps.push(check_dpkg("gcc-multilib"));
-    deps.push(check_dpkg("g++-multilib"));
+    // Libraries / Packages
+    // python3-dev: Try dpkg (Debian/Ubuntu) or rpm (Fedora/RHEL)
+    deps.push(check_shell_dependency("python3-dev", "dpkg -l | grep python3-dev || rpm -qa | grep python3-devel"));
+    
+    // python3-venv: Check by running module help
+    let venv_installed = check_command("python3", &["-m", "venv", "--help"]);
+    deps.push(Dependency {
+        name: "python3-venv".to_string(),
+        installed: venv_installed,
+        version: None,
+        critical: true,
+    });
+
+    // python3-tk: Try dpkg or rpm
+    deps.push(check_shell_dependency("python3-tk", "dpkg -l | grep python3-tk || rpm -qa | grep python3-tkinter"));
+
+    // Other libraries
+    deps.push(check_shell_dependency("libsdl2-dev", "dpkg -l | grep libsdl2-dev || rpm -qa | grep sdl2-compat-devel"));
+    deps.push(check_shell_dependency("libmagic1", "dpkg -l | grep libmagic1 || rpm -qa | grep file-libs"));
+    deps.push(check_shell_dependency("gcc-multilib", "dpkg -l | grep gcc-multilib || rpm -qa | grep \"glibc-devel.*i686\""));
+    deps.push(check_shell_dependency("g++-multilib", "dpkg -l | grep g++-multilib || rpm -qa | grep \"libstdc++-devel.*i686\""));
 
     let all_satisfied = deps.iter().all(|d| d.installed);
 

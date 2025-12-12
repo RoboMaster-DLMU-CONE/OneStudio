@@ -9,6 +9,7 @@ import {
   LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface NavItemProps {
   icon: React.ElementType;
@@ -87,52 +88,63 @@ export default function Dashboard() {
         <main className="flex-1 overflow-auto p-8">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {/* 示例卡片 - 之后会替换为真实数据 */}
-            <div className="rounded-xl border bg-card p-6 shadow-sm">
-              <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="text-sm font-medium text-muted-foreground">总节点数</div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">总节点数</CardTitle>
                 <Package className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="text-2xl font-bold">12</div>
-              <p className="text-xs text-muted-foreground mt-1">+2 since last commit</p>
-            </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">12</div>
+                <p className="text-xs text-muted-foreground mt-1">+2 since last commit</p>
+              </CardContent>
+            </Card>
             
-            <div className="rounded-xl border bg-card p-6 shadow-sm">
-              <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="text-sm font-medium text-muted-foreground">活跃 Topic</div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">活跃 Topic</CardTitle>
                 <Activity className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="text-2xl font-bold">48</div>
-              <p className="text-xs text-muted-foreground mt-1">1.2kHz total rate</p>
-            </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">48</div>
+                <p className="text-xs text-muted-foreground mt-1">1.2kHz total rate</p>
+              </CardContent>
+            </Card>
 
-            <div className="rounded-xl border bg-card p-6 shadow-sm">
-              <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="text-sm font-medium text-muted-foreground">CPU 负载</div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">CPU 负载</CardTitle>
                 <Activity className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="text-2xl font-bold">32%</div>
-              <p className="text-xs text-muted-foreground mt-1">Average load</p>
-            </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">32%</div>
+                <p className="text-xs text-muted-foreground mt-1">Average load</p>
+              </CardContent>
+            </Card>
           </div>
 
           {/* 这里可以放图表占位 */}
           <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-            <div className="col-span-4 rounded-xl border bg-card shadow-sm">
-              <div className="p-6">
-                <h3 className="font-semibold">系统资源监控</h3>
-                <div className="mt-4 h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg bg-muted/20">
+            <Card className="col-span-4">
+              <CardHeader>
+                <CardTitle>系统资源监控</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg bg-muted/20">
                   <span className="text-muted-foreground">Chart Placeholder</span>
                 </div>
-              </div>
-            </div>
-            <div className="col-span-3 rounded-xl border bg-card shadow-sm">
-              <div className="p-6">
-                <h3 className="font-semibold">最近日志</h3>
-                <div className="mt-4 h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg bg-muted/20">
+              </CardContent>
+            </Card>
+            
+            <Card className="col-span-3">
+              <CardHeader>
+                <CardTitle>最近日志</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg bg-muted/20">
                   <span className="text-muted-foreground">Log Placeholder</span>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
         </main>
 

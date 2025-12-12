@@ -1,8 +1,29 @@
 import { create } from 'zustand';
 
+interface UserConfig {
+  zephyr_base: string | null;
+  venv_path: string | null;
+  recent_projects: string[];
+}
+
+interface Dependency {
+  name: string;
+  installed: boolean;
+  version: string | null;
+  critical: boolean;
+}
+
+interface EnvReport {
+  os: string;
+  dependencies: Dependency[];
+  all_satisfied: boolean;
+}
+
 interface ProjectState {
   projectPath: string | null;
   setProjectPath: (path: string | null) => void;
+  
+  // Environment Status (Simple)
   envStatus: {
     git: boolean;
     python: boolean;
@@ -10,11 +31,19 @@ interface ProjectState {
     sdk: boolean;
   };
   setEnvStatus: (status: Partial<ProjectState['envStatus']>) => void;
+
+  // Detailed Config & Report
+  config: UserConfig;
+  setConfig: (config: UserConfig) => void;
+  
+  envReport: EnvReport | null;
+  setEnvReport: (report: EnvReport) => void;
 }
 
 export const useProjectStore = create<ProjectState>((set) => ({
   projectPath: null,
   setProjectPath: (path) => set({ projectPath: path }),
+  
   envStatus: {
     git: false,
     python: false,
@@ -25,4 +54,14 @@ export const useProjectStore = create<ProjectState>((set) => ({
     set((state) => ({
       envStatus: { ...state.envStatus, ...status },
     })),
+
+  config: {
+    zephyr_base: null,
+    venv_path: null,
+    recent_projects: [],
+  },
+  setConfig: (config) => set({ config }),
+
+  envReport: null,
+  setEnvReport: (report) => set({ envReport: report }),
 }));
