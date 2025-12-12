@@ -1,6 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@font-face {
+  font-family: 'AlibabaPuHuiTi';
+  src: url('./assets/fonts/AlibabaPuHuiTi-3-65-Medium.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -116,5 +123,6 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'AlibabaPuHuiTi', sans-serif;
   }
 }

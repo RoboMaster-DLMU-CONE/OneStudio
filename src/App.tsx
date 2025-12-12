@@ -1,10 +1,16 @@
-import { Button } from "@/components/ui/button"
+import { HashRouter, Routes, Route } from "react-router-dom";
+import Launcher from "@/pages/Launcher";
+import Dashboard from "@/pages/Dashboard";
+
 function App() {
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center">
-      <Button>Click me</Button>
-    </div>
-  )
+    <HashRouter>
+      <Routes>
+        <Route path="/" element={<Launcher />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+      </Routes>
+    </HashRouter>
+  );
 }
 
 export default App;
