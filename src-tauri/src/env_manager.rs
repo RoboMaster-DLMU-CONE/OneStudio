@@ -1,7 +1,7 @@
+use crate::config_manager;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 use tauri::AppHandle;
-use crate::config_manager;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EnvStatus {
@@ -29,14 +29,16 @@ pub struct EnvReport {
 #[tauri::command]
 pub async fn check_environment(app: AppHandle) -> EnvStatus {
     let config = config_manager::get_config(app).unwrap_or_default();
-    
+
     // Use configured venv python if available, otherwise system python
     let python_cmd = if let Some(venv) = config.venv_path {
         #[cfg(target_os = "windows")]
-        let p = std::path::Path::new(&venv).join("Scripts").join("python.exe");
+        let p = std::path::Path::new(&venv)
+            .join("Scripts")
+            .join("python.exe");
         #[cfg(not(target_os = "windows"))]
         let p = std::path::Path::new(&venv).join("bin").join("python");
-        
+
         if p.exists() {
             p.to_string_lossy().to_string()
         } else {
@@ -48,10 +50,10 @@ pub async fn check_environment(app: AppHandle) -> EnvStatus {
 
     let git = check_command("git", &["--version"]);
     let python = check_command(&python_cmd, &["--version"]);
-    
+
     // Check west using the resolved python
     let west = check_command(&python_cmd, &["-m", "west", "--version"]);
-    
+
     // Check SDK using configured path or env var
     let sdk = if let Some(base) = config.zephyr_base {
         std::path::Path::new(&base).exists()
@@ -90,7 +92,11 @@ pub async fn check_dependencies() -> EnvReport {
 #[tauri::command]
 pub async fn install_dependencies(app: AppHandle) -> Result<(), String> {
     let report = check_dependencies().await;
-    let missing_deps: Vec<&Dependency> = report.dependencies.iter().filter(|d| !d.installed).collect();
+    let missing_deps: Vec<&Dependency> = report
+        .dependencies
+        .iter()
+        .filter(|d| !d.installed)
+        .collect();
 
     if missing_deps.is_empty() {
         return Ok(());
@@ -111,11 +117,14 @@ pub async fn install_dependencies(app: AppHandle) -> Result<(), String> {
 }
 
 #[cfg(target_os = "linux")]
-async fn install_linux_dependencies(_app: AppHandle, missing: &[&Dependency]) -> Result<(), String> {
+async fn install_linux_dependencies(
+    _app: AppHandle,
+    missing: &[&Dependency],
+) -> Result<(), String> {
     // Detect distro
     let release = std::fs::read_to_string("/etc/os-release").unwrap_or_default();
     let is_fedora = release.to_lowercase().contains("fedora");
-    
+
     let mut packages = Vec::new();
 
     for dep in missing {
@@ -187,7 +196,7 @@ async fn install_linux_dependencies(_app: AppHandle, missing: &[&Dependency]) ->
     } else {
         vec!["install", "-y", "--no-install-recommends"]
     };
-    
+
     let pkg_refs: Vec<&str> = packages.iter().map(|s| s.as_str()).collect();
     args.extend(pkg_refs);
 
@@ -196,25 +205,41 @@ async fn install_linux_dependencies(_app: AppHandle, missing: &[&Dependency]) ->
 
     // Try to launch a terminal to run the command with sudo
     let terminals = ["gnome-terminal", "konsole", "xfce4-terminal", "xterm"];
-    
+
     for term in terminals {
         if which::which(term).is_ok() {
             let mut command = Command::new(term);
-            
+
             match term {
                 "gnome-terminal" | "xfce4-terminal" => {
-                    command.args(&["--", "bash", "-c", &format!("{}; echo 'Press Enter to close...'; read", full_cmd)]);
-                },
+                    command.args(&[
+                        "--",
+                        "bash",
+                        "-c",
+                        &format!("{}; echo 'Press Enter to close...'; read", full_cmd),
+                    ]);
+                }
                 "konsole" => {
-                    command.args(&["-e", "bash", "-c", &format!("{}; echo 'Press Enter to close...'; read", full_cmd)]);
-                },
+                    command.args(&[
+                        "-e",
+                        "bash",
+                        "-c",
+                        &format!("{}; echo 'Press Enter to close...'; read", full_cmd),
+                    ]);
+                }
                 "xterm" => {
-                    command.args(&["-e", "bash", "-c", &format!("{}; echo 'Press Enter to close...'; read", full_cmd)]);
-                },
+                    command.args(&[
+                        "-e",
+                        "bash",
+                        "-c",
+                        &format!("{}; echo 'Press Enter to close...'; read", full_cmd),
+                    ]);
+                }
                 _ => continue,
             }
 
-            return command.spawn()
+            return command
+                .spawn()
                 .map(|_| ())
                 .map_err(|e| format!("Failed to launch terminal: {}", e));
         }
@@ -224,7 +249,10 @@ async fn install_linux_dependencies(_app: AppHandle, missing: &[&Dependency]) ->
 }
 
 #[cfg(target_os = "windows")]
-async fn install_windows_dependencies(_app: AppHandle, missing: &[&Dependency]) -> Result<(), String> {
+async fn install_windows_dependencies(
+    _app: AppHandle,
+    missing: &[&Dependency],
+) -> Result<(), String> {
     let mut packages = Vec::new();
 
     for dep in missing {
@@ -249,10 +277,11 @@ async fn install_windows_dependencies(_app: AppHandle, missing: &[&Dependency]) 
         return Ok(());
     }
 
-    let install_cmds: Vec<String> = packages.iter()
+    let install_cmds: Vec<String> = packages
+        .iter()
         .map(|p| format!("winget install {}", p))
         .collect();
-    
+
     let install_script = install_cmds.join("; ");
 
     let ps_command = format!(
@@ -261,7 +290,14 @@ async fn install_windows_dependencies(_app: AppHandle, missing: &[&Dependency]) 
     );
 
     Command::new("powershell")
-        .args(&["Start-Process", "powershell", "-Verb", "RunAs", "-ArgumentList", &format!("\"-NoExit -Command {}\"", ps_command)])
+        .args(&[
+            "Start-Process",
+            "powershell",
+            "-Verb",
+            "RunAs",
+            "-ArgumentList",
+            &format!("\"-NoExit -Command {}\"", ps_command),
+        ])
         .spawn()
         .map(|_| ())
         .map_err(|e| format!("Failed to launch PowerShell: {}", e))
@@ -336,7 +372,7 @@ fn check_shell_dependency(name: &str, cmd: &str) -> Dependency {
 #[cfg(target_os = "linux")]
 fn check_linux_dependencies() -> EnvReport {
     let mut deps = Vec::new();
-    
+
     // Executables
     deps.push(check_binary("Git", "git", "--version"));
     deps.push(check_binary("CMake", "cmake", "--version"));
@@ -355,8 +391,11 @@ fn check_linux_dependencies() -> EnvReport {
 
     // Libraries / Packages
     // python3-dev: Try dpkg (Debian/Ubuntu) or rpm (Fedora/RHEL)
-    deps.push(check_shell_dependency("python3-dev", "dpkg -l | grep python3-dev || rpm -qa | grep python3-devel"));
-    
+    deps.push(check_shell_dependency(
+        "python3-dev",
+        "dpkg -l | grep python3-dev || rpm -qa | grep python3-devel",
+    ));
+
     // python3-venv: Check by running module help
     let venv_installed = check_command("python3", &["-m", "venv", "--help"]);
     deps.push(Dependency {
@@ -367,13 +406,28 @@ fn check_linux_dependencies() -> EnvReport {
     });
 
     // python3-tk: Try dpkg or rpm
-    deps.push(check_shell_dependency("python3-tk", "dpkg -l | grep python3-tk || rpm -qa | grep python3-tkinter"));
+    deps.push(check_shell_dependency(
+        "python3-tk",
+        "dpkg -l | grep python3-tk || rpm -qa | grep python3-tkinter",
+    ));
 
     // Other libraries
-    deps.push(check_shell_dependency("libsdl2-dev", "dpkg -l | grep libsdl2-dev || rpm -qa | grep sdl2-compat-devel"));
-    deps.push(check_shell_dependency("libmagic1", "dpkg -l | grep libmagic1 || rpm -qa | grep file-libs"));
-    deps.push(check_shell_dependency("gcc-multilib", "dpkg -l | grep gcc-multilib || rpm -qa | grep \"glibc-devel.*i686\""));
-    deps.push(check_shell_dependency("g++-multilib", "dpkg -l | grep g++-multilib || rpm -qa | grep \"libstdc++-devel.*i686\""));
+    deps.push(check_shell_dependency(
+        "libsdl2-dev",
+        "dpkg -l | grep libsdl2-dev || rpm -qa | grep sdl2-compat-devel",
+    ));
+    deps.push(check_shell_dependency(
+        "libmagic1",
+        "dpkg -l | grep libmagic1 || rpm -qa | grep file-libs",
+    ));
+    deps.push(check_shell_dependency(
+        "gcc-multilib",
+        "dpkg -l | grep gcc-multilib || rpm -qa | grep \"glibc-devel.*i686\"",
+    ));
+    deps.push(check_shell_dependency(
+        "g++-multilib",
+        "dpkg -l | grep g++-multilib || rpm -qa | grep \"libstdc++-devel.*i686\"",
+    ));
 
     let all_satisfied = deps.iter().all(|d| d.installed);
 
@@ -387,7 +441,7 @@ fn check_linux_dependencies() -> EnvReport {
 #[cfg(target_os = "windows")]
 fn check_windows_dependencies() -> EnvReport {
     let mut deps = Vec::new();
-    
+
     // Executables
     deps.push(check_binary("CMake", "cmake", "--version"));
     deps.push(check_binary("Ninja", "ninja", "--version"));

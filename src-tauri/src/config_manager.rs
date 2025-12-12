@@ -25,14 +25,14 @@ pub fn get_config(app: AppHandle) -> Result<UserConfig, String> {
 #[tauri::command]
 pub fn save_config(app: AppHandle, config: UserConfig) -> Result<(), String> {
     let config_path = get_config_path(&app)?;
-    
+
     if let Some(parent) = config_path.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
 
     let content = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
     fs::write(config_path, content).map_err(|e| e.to_string())?;
-    
+
     Ok(())
 }
 
@@ -53,19 +53,19 @@ pub fn set_venv_path(app: AppHandle, path: String) -> Result<(), String> {
 #[tauri::command]
 pub fn add_recent_project(app: AppHandle, path: String) -> Result<(), String> {
     let mut config = get_config(app.clone())?;
-    
+
     // Remove if exists to move to top
     if let Some(pos) = config.recent_projects.iter().position(|x| x == &path) {
         config.recent_projects.remove(pos);
     }
-    
+
     config.recent_projects.insert(0, path);
-    
+
     // Keep only last 10
     if config.recent_projects.len() > 10 {
         config.recent_projects.truncate(10);
     }
-    
+
     save_config(app, config)
 }
 

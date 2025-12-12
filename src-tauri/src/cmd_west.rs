@@ -1,8 +1,8 @@
-use std::process::{Command, Stdio};
-use std::path::Path;
-use tauri::{AppHandle, Emitter};
 use std::io::{BufRead, BufReader};
+use std::path::Path;
+use std::process::{Command, Stdio};
 use std::thread;
+use tauri::{AppHandle, Emitter};
 
 #[tauri::command]
 pub async fn run_west_command(args: Vec<String>, cwd: Option<String>) -> Result<String, String> {
@@ -22,15 +22,22 @@ pub async fn run_west_command(args: Vec<String>, cwd: Option<String>) -> Result<
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        Err(format!("Command failed:\nStdout: {}\nStderr: {}", stdout, stderr))
+        Err(format!(
+            "Command failed:\nStdout: {}\nStderr: {}",
+            stdout, stderr
+        ))
     }
 }
 
 #[tauri::command]
-pub async fn run_west_stream(app: AppHandle, args: Vec<String>, cwd: Option<String>) -> Result<(), String> {
+pub async fn run_west_stream(
+    app: AppHandle,
+    args: Vec<String>,
+    cwd: Option<String>,
+) -> Result<(), String> {
     let mut command = Command::new("west");
     command.args(&args);
-    
+
     if let Some(path) = cwd {
         command.current_dir(Path::new(&path));
     }
@@ -64,7 +71,7 @@ pub async fn run_west_stream(app: AppHandle, args: Vec<String>, cwd: Option<Stri
     });
 
     let status = child.wait().map_err(|e| e.to_string())?;
-    
+
     if status.success() {
         Ok(())
     } else {
@@ -75,12 +82,7 @@ pub async fn run_west_stream(app: AppHandle, args: Vec<String>, cwd: Option<Stri
 #[tauri::command]
 pub async fn west_init(url: String, path: String) -> Result<String, String> {
     // west init -m <url> <path>
-    let args = vec![
-        "init".to_string(),
-        "-m".to_string(),
-        url,
-        path,
-    ];
-    
+    let args = vec!["init".to_string(), "-m".to_string(), url, path];
+
     run_west_command(args, None).await
 }
