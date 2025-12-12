@@ -1,9 +1,18 @@
 import { create } from 'zustand';
 
+interface ProjectMetadata {
+  path: string;
+  name: string;
+  last_opened: number; // Unix timestamp
+  project_type?: string;
+  zephyr_version?: string;
+}
+
 interface UserConfig {
   zephyr_base: string | null;
   venv_path: string | null;
-  recent_projects: string[];
+  recent_projects: string[]; // Legacy field
+  project_history?: ProjectMetadata[]; // New field for extended project history
 }
 
 interface Dependency {

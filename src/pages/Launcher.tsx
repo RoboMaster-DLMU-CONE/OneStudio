@@ -47,9 +47,17 @@ export default function Launcher() {
     const mockPath = "/home/user/projects/MyHeroRobot";
     setProjectPath(mockPath);
 
-    // Add to recent
+    // Add to recent (using legacy function for compatibility)
     invoke("add_recent_project", { path: mockPath }).then(() => {
       // Refresh config not strictly needed if we navigate away, but good practice
+    });
+
+    // Add to project history with extended metadata
+    invoke("add_project_to_history", { path: mockPath, name: undefined }).then(() => {
+      // Refresh config to update project history
+      invoke("get_config").then((newConfig: any) => {
+        setConfig(newConfig);
+      });
     });
 
     navigate("/dashboard");
@@ -76,16 +84,19 @@ export default function Launcher() {
           <p className="mt-2 text-muted-foreground">RoboMaster 嵌入式开发环境</p>
         </div>
 
-        <div className="mb-6 md:mb-8 flex flex-col sm:flex-row gap-3 md:gap-4">
-          <Button size="lg" className="gap-2" onClick={() => console.log("New Project")}>
-            <Plus className="h-5 w-5" />
-            新建项目
-          </Button>
-          <Button variant="outline" size="lg" className="gap-2" onClick={handleOpenProject}>
-            <FolderOpen className="h-5 w-5" />
-            打开项目
-          </Button>
-        </div>
+        {/* Only show the buttons if there are existing project history */}
+        {((config.project_history && config.project_history.length > 0) || config.recent_projects.length > 0) && (
+          <div className="mb-6 md:mb-8 flex flex-col sm:flex-row gap-3 md:gap-4">
+            <Button size="lg" className="gap-2" onClick={() => navigate("/new-project")}>
+              <Plus className="h-5 w-5" />
+              新建项目
+            </Button>
+            <Button variant="outline" size="lg" className="gap-2" onClick={handleOpenProject}>
+              <FolderOpen className="h-5 w-5" />
+              打开项目
+            </Button>
+          </div>
+        )}
 
         <div className="flex-1">
           <RecentProjects />

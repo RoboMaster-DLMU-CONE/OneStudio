@@ -23,6 +23,10 @@ pub fn run() {
             config_manager::set_zephyr_path,
             config_manager::set_venv_path,
             config_manager::add_recent_project,
+            config_manager::add_project_to_history,
+            config_manager::get_project_history,
+            config_manager::remove_project_from_history,
+            config_manager::create_project,
             cmd_zephyr::install_zephyr
         ])
         .run(tauri::generate_context!())
