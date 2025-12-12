@@ -12,9 +12,9 @@
   "app": {
     "windows": [
       {
-        "title": "one-studio",
-        "width": 800,
-        "height": 600
+        "title": "OneStudio",
+        "width": 1420,
+        "height": 900
       }
     ],
     "security": {
