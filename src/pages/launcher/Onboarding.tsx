@@ -45,9 +45,11 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
   // Get platform-specific default install path
   const [defaultInstallPath, setDefaultInstallPath] = useState("");
 
+  // Detect default paths and existing installations
   useEffect(() => {
-    const setDefaultPaths = async () => {
-      const platformName = platform();
+    const initAndDetectPaths = async () => {
+      // Get platform-specific default install path
+      const platformName = await platform();
 
       if (platformName === "windows") {
         // On Windows, use something like C:\Users\{username}\zephyrproject
@@ -57,9 +59,24 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
         // On Unix-like systems, use ~/zephyrproject
         setDefaultInstallPath("~/zephyrproject");
       }
+
+      // Auto-detect existing Zephyr SDK and venv paths
+      try {
+        const detectedSdkPath = await invoke<string | null>("detect_zephyr_sdk_path");
+        if (detectedSdkPath && !config.zephyr_base) { // Only set if not already set by config
+          setZephyrPath(detectedSdkPath);
+        }
+
+        const detectedVenvPath = await invoke<string | null>("detect_venv_path");
+        if (detectedVenvPath && !config.venv_path) { // Only set if not already set by config
+          setVenvPath(detectedVenvPath);
+        }
+      } catch (error) {
+        console.error("Auto-detection failed:", error);
+      }
     };
 
-    setDefaultPaths();
+    initAndDetectPaths();
   }, []);
 
   const runCheck = async () => {
@@ -108,6 +125,36 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
     });
     if (selected) {
       setZephyrPath(selected as string);
+    }
+  };
+
+  const handleDetectZephyrPath = async () => {
+    try {
+      const detectedPath = await invoke<string | null>("detect_zephyr_sdk_path");
+      if (detectedPath) {
+        setZephyrPath(detectedPath);
+        toast.success("Zephyr SDK 路径检测成功！");
+      } else {
+        toast.info("未找到 Zephyr SDK，您可能需要先安装它");
+      }
+    } catch (error) {
+      console.error("检测 Zephyr SDK 路径失败:", error);
+      toast.error("检测 Zephyr SDK 路径失败: " + (error as Error).message);
+    }
+  };
+
+  const handleDetectVenvPath = async () => {
+    try {
+      const detectedPath = await invoke<string | null>("detect_venv_path");
+      if (detectedPath) {
+        setVenvPath(detectedPath);
+        toast.success("虚拟环境路径检测成功！");
+      } else {
+        toast.info("未找到虚拟环境，您可能需要先创建项目");
+      }
+    } catch (error) {
+      console.error("检测虚拟环境路径失败:", error);
+      toast.error("检测虚拟环境路径失败: " + (error as Error).message);
     }
   };
 
@@ -268,12 +315,19 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
                       value={zephyrPath}
                       onChange={(e) => setZephyrPath(e.target.value)}
                     />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={handleDetectZephyrPath}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
                     <Button variant="outline" size="icon" onClick={handlePickZephyrPath}>
                       <FolderOpen className="h-4 w-4" />
                     </Button>
                   </div>
                   <p className="text-[0.8rem] text-muted-foreground">
-                    指向一个sdk文件夹的路径。比如：/home/wf/zephyr-sdk-0.17.4
+                    指向一个SDK文件夹的路径
                   </p>
                 </div>
 
@@ -287,6 +341,13 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
                       value={venvPath}
                       onChange={(e) => setVenvPath(e.target.value)}
                     />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={handleDetectVenvPath}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
                     <Button variant="outline" size="icon" onClick={handlePickVenvPath}>
                       <FolderOpen className="h-4 w-4" />
                     </Button>

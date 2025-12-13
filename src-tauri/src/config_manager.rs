@@ -589,6 +589,50 @@ pub fn get_home_dir() -> Result<String, String> {
     Ok(home_dir)
 }
 
+#[tauri::command]
+pub fn detect_zephyr_sdk_path() -> Result<Option<String>, String> {
+    let home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
+    let home_path = std::path::Path::new(&home_dir);
+
+    // Look for directories matching zephyr-sdk-* pattern
+    let sdk_dir_pattern = home_path.join("zephyr-sdk-*");
+
+    // Instead of globbing, let's check for common SDK directory patterns
+    // List the contents of the home directory and find zephyr-sdk directories
+    let entries = std::fs::read_dir(home_path)
+        .map_err(|e| format!("无法读取主目录: {}", e))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("读取目录项失败: {}", e))?;
+        let file_name = entry.file_name();
+        let file_name_str = file_name.to_string_lossy();
+
+        if file_name_str.starts_with("zephyr-sdk-") && entry.path().is_dir() {
+            // This is a zephyr-sdk directory, let's check if it looks like a valid SDK
+            let path = entry.path();
+            // Check if there's a top-level directory with executables or other SDK markers
+            if path.join("zephyr-sdk").exists() || path.join("sysroots").exists() || path.join("toolchain").exists() {
+                return Ok(Some(path.to_string_lossy().to_string()));
+            }
+        }
+    }
+
+    // If no valid SDK directory found, return None
+    Ok(None)
+}
+
+#[tauri::command]
+pub fn detect_venv_path() -> Result<Option<String>, String> {
+    let home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
+    let venv_path = std::path::Path::new(&home_dir).join("zephyrproject").join(".venv");
+
+    if venv_path.exists() && venv_path.is_dir() {
+        Ok(Some(venv_path.to_string_lossy().to_string()))
+    } else {
+        Ok(None)
+    }
+}
+
 fn get_config_path(app: &AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_config_dir()
