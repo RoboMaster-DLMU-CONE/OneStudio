@@ -27,6 +27,9 @@ pub fn run() {
             config_manager::get_project_history,
             config_manager::remove_project_from_history,
             config_manager::create_project,
+            config_manager::open_project,
+            config_manager::detect_project_name,
+            config_manager::check_cmake_exists,
             cmd_zephyr::install_zephyr
         ])
         .run(tauri::generate_context!())

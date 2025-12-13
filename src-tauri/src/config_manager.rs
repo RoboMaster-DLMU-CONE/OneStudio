@@ -6,6 +6,8 @@ use std::path::PathBuf;
 use tauri::AppHandle;
 use tauri::Emitter;
 use tauri::Manager;
+use std::fs::File;
+use std::io::BufReader as StdBufReader;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProjectMetadata {
@@ -406,6 +408,109 @@ async fn run_create_project_commands(
     }
 
     emit_log(&app, "项目创建完成！");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn check_cmake_exists(workspace_path: String) -> Result<bool, String> {
+    let cmake_path = std::path::Path::new(&workspace_path).join("app").join("app").join("CMakeLists.txt");
+    Ok(cmake_path.exists())
+}
+
+#[tauri::command]
+pub fn detect_project_name(workspace_path: String) -> Result<String, String> {
+    // Look for CMakeLists.txt in app/app/ directory
+    let cmake_path = std::path::Path::new(&workspace_path)
+        .join("app")
+        .join("app")
+        .join("CMakeLists.txt");
+
+    if !cmake_path.exists() {
+        return Err("CMakeLists.txt not found in app/app/ directory".to_string());
+    }
+
+    // Read the file line by line
+    let file = File::open(&cmake_path)
+        .map_err(|e| format!("Failed to open CMakeLists.txt: {}", e))?;
+    let reader = StdBufReader::new(file);
+
+    for line in reader.lines() {
+        let line = line.map_err(|e| format!("Error reading line: {}", e))?;
+
+        // Look for project() directive in CMakeLists.txt
+        if line.trim().to_lowercase().starts_with("project(") {
+            // Extract the project name within parentheses
+            let start = line.find('(');
+            let end = line.rfind(')');
+
+            if let (Some(start_idx), Some(end_idx)) = (start, end) {
+                let content = &line[start_idx + 1..end_idx];
+                // Remove the parentheses and get the project name
+                let project_name = content.trim();
+
+                // If there are additional parameters after the name, take just the first part
+                let name_part = project_name.split_whitespace().next().unwrap_or(project_name);
+
+                return Ok(name_part.to_string());
+            }
+        }
+    }
+
+    Err("No project() directive found in CMakeLists.txt".to_string())
+}
+
+#[tauri::command]
+pub async fn open_project(
+    app: AppHandle,
+    workspace_path: String,
+    projectName: String,
+) -> Result<(), String> {
+    // First, save the project information to config
+    let mut config = get_config(app.clone()).map_err(|e| format!("获取配置失败: {}", e))?;
+
+    // Add project to recent projects and history
+    if let Some(pos) = config.recent_projects.iter().position(|x| x == &workspace_path) {
+        config.recent_projects.remove(pos);
+    }
+    config.recent_projects.insert(0, workspace_path.clone());
+
+    // Ensure project history is up to date
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| e.to_string())?
+        .as_secs();
+
+    let mut updated = false;
+    for project in &mut config.project_history {
+        if project.path == workspace_path {
+            project.name = projectName.clone();
+            project.last_opened = timestamp;
+            updated = true;
+            break;
+        }
+    }
+
+    if !updated {
+        config.project_history.push(ProjectMetadata {
+            path: workspace_path.clone(),
+            name: projectName.clone(),
+            last_opened: timestamp,
+            project_type: Some("zephyr".to_string()),
+            zephyr_version: None,
+        });
+    }
+
+    // Keep only last 10 projects and sort by last opened (newest first)
+    config.project_history.sort_by(|a, b| b.last_opened.cmp(&a.last_opened));
+    if config.project_history.len() > 10 {
+        config.project_history.truncate(10);
+    }
+
+    save_config(app.clone(), config).map_err(|e| format!("保存配置失败: {}", e))?;
+
+    // Set the current project path (this would typically be handled by the frontend)
+    // For now, we just confirm the project is added to the history
+
     Ok(())
 }
 

@@ -83,7 +83,7 @@ export default function NewProject() {
             新建工程
           </CardTitle>
           <CardDescription>
-            创建一个新的 Zephyr 项目
+            创建一个新的 one-framework 项目
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

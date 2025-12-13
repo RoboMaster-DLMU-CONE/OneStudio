@@ -13,10 +13,13 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Button } from "@/components/ui/button";
+import OpenProjectDialog from "@/components/open-project-dialog";
+import { useState } from "react";
 
 export default function RecentProjects() {
   const { config, setProjectPath, setConfig } = useProjectStore();
   const navigate = useNavigate();
+  const [openProjectDialogOpen, setOpenProjectDialogOpen] = useState(false);
 
   const handleOpen = (path: string) => {
     setProjectPath(path);
@@ -38,8 +41,9 @@ export default function RecentProjects() {
     config.recent_projects.map(path => ({ path, name: path.split(/[/\\]/).pop() || path }));
 
   // If no project history exists, show empty state with create/open options
+  let content;
   if (projectList.length === 0) {
-    return (
+    content = (
       <Empty className="border border-dashed">
         <EmptyHeader>
           <EmptyMedia variant="icon">
@@ -56,7 +60,10 @@ export default function RecentProjects() {
               <Plus className="w-4 h-4 mr-2" />
               创建项目
             </Button>
-            <Button variant="outline" onClick={() => console.log("Open Project")}>
+            <Button
+              variant="outline"
+              onClick={() => setOpenProjectDialogOpen(true)}
+            >
               <Folder className="w-4 h-4 mr-2" />
               打开项目
             </Button>
@@ -64,29 +71,47 @@ export default function RecentProjects() {
         </EmptyContent>
       </Empty>
     );
+  } else {
+    // If project history exists, show the regular list
+    content = (
+      <div className="space-y-2">
+        <h3 className="mb-4 text-sm font-medium text-muted-foreground uppercase tracking-wider">最近项目</h3>
+        <ScrollArea className="h-[300px]">
+          <div className="grid gap-2">
+            {projectList.map((project) => (
+              <button
+                key={project.path}
+                onClick={() => handleOpen(project.path)}
+                className="group flex w-full items-center justify-between rounded-lg border bg-card p-4 text-left transition-all hover:border-primary hover:shadow-sm"
+              >
+                <div className="flex flex-col overflow-hidden">
+                  <span className="truncate font-medium">{project.name}</span>
+                  <span className="truncate text-xs text-muted-foreground">{project.path}</span>
+                </div>
+                <ArrowRight className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+              </button>
+            ))}
+          </div>
+        </ScrollArea>
+      </div>
+    );
   }
 
-  // If project history exists, show the regular list
+  // Render the content and dialog
   return (
-    <div className="space-y-2">
-      <h3 className="mb-4 text-sm font-medium text-muted-foreground uppercase tracking-wider">最近项目</h3>
-      <ScrollArea className="h-[300px]">
-        <div className="grid gap-2">
-          {projectList.map((project) => (
-            <button
-              key={project.path}
-              onClick={() => handleOpen(project.path)}
-              className="group flex w-full items-center justify-between rounded-lg border bg-card p-4 text-left transition-all hover:border-primary hover:shadow-sm"
-            >
-              <div className="flex flex-col overflow-hidden">
-                <span className="truncate font-medium">{project.name}</span>
-                <span className="truncate text-xs text-muted-foreground">{project.path}</span>
-              </div>
-              <ArrowRight className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
-            </button>
-          ))}
-        </div>
-      </ScrollArea>
-    </div>
+    <>
+      {content}
+      <OpenProjectDialog
+        open={openProjectDialogOpen}
+        onOpenChange={setOpenProjectDialogOpen}
+        onProjectOpened={() => {
+          // Refresh the config after project is opened to update recent projects and history
+          invoke("get_config").then((newConfig: any) => {
+            setConfig(newConfig);
+          });
+          navigate("/dashboard");
+        }}
+      />
+    </>
   );
 }
