@@ -15,11 +15,13 @@ import { CheckCircle2, XCircle, AlertCircle, RefreshCw, FolderOpen, Terminal as 
 import { cn } from "@/lib/utils";
 import Terminal from "@/components/terminal/Terminal";
 import { toast } from "sonner";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function Onboarding({ onComplete }: { onComplete: () => void }) {
   const { envReport, setEnvReport, config, setConfig, setEnvStatus } = useProjectStore();
   const [activeTab, setActiveTab] = useState<"check" | "setup">("check");
   const [checking, setChecking] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [zephyrPath, setZephyrPath] = useState(config.zephyr_base || "");
   const [venvPath, setVenvPath] = useState(config.venv_path || "");
 
@@ -47,6 +49,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
   }, []);
 
   const handleSaveConfig = async () => {
+    setSaving(true);
     try {
       if (zephyrPath) await invoke("set_zephyr_path", { path: zephyrPath });
       if (venvPath) await invoke("set_venv_path", { path: venvPath });
@@ -62,6 +65,8 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
       onComplete();
     } catch (e) {
       console.error("Failed to save config", e);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -355,8 +360,9 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
                 <Button variant="ghost" onClick={() => setActiveTab("check")}>
                   上一步
                 </Button>
-                <Button onClick={handleSaveConfig}>
-                  完成配置并进入
+                <Button onClick={handleSaveConfig} disabled={saving}>
+                  {saving && <Spinner className="mr-2" />}
+                  {saving ? "保存中..." : "完成配置并进入"}
                 </Button>
               </div>
             </TabsContent>

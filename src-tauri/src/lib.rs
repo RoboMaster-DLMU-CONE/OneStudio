@@ -30,6 +30,7 @@ pub fn run() {
             config_manager::open_project,
             config_manager::detect_project_name,
             config_manager::check_cmake_exists,
+            config_manager::delete_project_directory,
             cmd_zephyr::install_zephyr
         ])
         .run(tauri::generate_context!())

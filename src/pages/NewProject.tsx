@@ -12,6 +12,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { open } from '@tauri-apps/plugin-shell';
 import { listen } from '@tauri-apps/api/event';
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function NewProject() {
   const [projectName, setProjectName] = useState("");
@@ -131,6 +132,12 @@ export default function NewProject() {
             <Label htmlFor="shallowClone">使用浅克隆 (减少下载大小)</Label>
           </div>
 
+          <div className="rounded-md border bg-muted p-4 text-sm">
+            <div className="font-medium">资源需求:</div>
+            <div>预计占用空间: {shallowClone ? '500' : '1500'}MB</div>
+            <div>预计下载时间: {shallowClone ? '5' : '15'}分钟</div>
+          </div>
+
           {/* 终端输出区域 */}
           {terminalOutput.length > 0 && (
             <div className="border rounded-md bg-black text-white font-mono text-sm p-4">
@@ -170,6 +177,7 @@ export default function NewProject() {
                 onClick={handleCreateProject}
                 disabled={creating}
               >
+                {creating && <Spinner className="mr-2" />}
                 {creating ? "创建中..." : "创建项目"}
               </Button>
             </div>

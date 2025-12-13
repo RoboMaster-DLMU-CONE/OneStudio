@@ -514,6 +514,27 @@ pub async fn open_project(
     Ok(())
 }
 
+#[tauri::command]
+pub fn delete_project_directory(path: String) -> Result<(), String> {
+    use std::fs;
+    use std::path::Path;
+
+    let project_path = Path::new(&path);
+
+    if !project_path.exists() {
+        return Err("Project path does not exist".to_string());
+    }
+
+    // Verify that the path is a directory to prevent accidental deletion of files
+    if !project_path.is_dir() {
+        return Err("Path is not a directory".to_string());
+    }
+
+    // Recursively remove the entire directory and its contents
+    fs::remove_dir_all(project_path)
+        .map_err(|e| format!("Failed to delete project directory: {}", e))
+}
+
 fn get_config_path(app: &AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_config_dir()

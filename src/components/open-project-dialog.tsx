@@ -7,6 +7,7 @@ import { FolderOpen, FileSearch, Save, Folder } from "lucide-react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
+import { Spinner } from "@/components/ui/spinner";
 
 interface OpenProjectDialogProps {
   open: boolean;
@@ -175,7 +176,7 @@ export default function OpenProjectDialog({ open, onOpenChange, onProjectOpened 
                 disabled={!workspacePath || isDetecting || isOpening}
                 title="自动检测项目名称"
               >
-                <FileSearch className="h-4 w-4" />
+                {isDetecting ? <Spinner /> : <FileSearch className="h-4 w-4" />}
               </Button>
             </div>
             {autoDetectedName && (
@@ -199,17 +200,8 @@ export default function OpenProjectDialog({ open, onOpenChange, onProjectOpened 
               onClick={handleOpenProject}
               disabled={!workspacePath || !projectName.trim() || isDetecting || isOpening}
             >
-              {isOpening ? (
-                <>
-                  <Save className="h-4 w-4 animate-spin" />
-                  正在打开...
-                </>
-              ) : (
-                <>
-                  <Folder className="h-4 w-4" />
-                  打开项目
-                </>
-              )}
+              {isOpening && <Spinner className="mr-2" />}
+              {isOpening ? "正在打开..." : "打开项目"}
             </Button>
           </div>
         </div>
