@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::BufReader;
+use std::fs::File;
 use std::io::BufRead;
+use std::io::BufReader;
+use std::io::BufReader as StdBufReader;
 use std::path::PathBuf;
 use tauri::AppHandle;
 use tauri::Emitter;
 use tauri::Manager;
-use std::fs::File;
-use std::io::BufReader as StdBufReader;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProjectMetadata {
@@ -88,7 +88,11 @@ pub fn add_recent_project(app: AppHandle, path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn add_project_to_history(app: AppHandle, path: String, name: Option<String>) -> Result<(), String> {
+pub fn add_project_to_history(
+    app: AppHandle,
+    path: String,
+    name: Option<String>,
+) -> Result<(), String> {
     let mut config = get_config(app.clone())?;
 
     // Use provided name or extract from path
@@ -127,7 +131,9 @@ pub fn add_project_to_history(app: AppHandle, path: String, name: Option<String>
     }
 
     // Keep only last 10 projects and sort by last opened (newest first)
-    config.project_history.sort_by(|a, b| b.last_opened.cmp(&a.last_opened));
+    config
+        .project_history
+        .sort_by(|a, b| b.last_opened.cmp(&a.last_opened));
     if config.project_history.len() > 10 {
         config.project_history.truncate(10);
     }
@@ -145,12 +151,14 @@ pub fn get_project_history(app: AppHandle) -> Result<Vec<ProjectMetadata>, Strin
 pub fn remove_project_from_history(app: AppHandle, path: String) -> Result<(), String> {
     let mut config = get_config(app.clone())?;
 
-    config.project_history.retain(|project| project.path != path);
+    config
+        .project_history
+        .retain(|project| project.path != path);
     save_config(app, config)
 }
 
-use std::process::Command;
 use std::path::Path;
+use std::process::Command;
 
 #[tauri::command]
 pub async fn create_project(
@@ -163,7 +171,11 @@ pub async fn create_project(
     let mut config = get_config(app.clone()).map_err(|e| format!("获取配置失败: {}", e))?;
 
     // Add project to recent projects and history
-    if let Some(pos) = config.recent_projects.iter().position(|x| x == &workspace_path) {
+    if let Some(pos) = config
+        .recent_projects
+        .iter()
+        .position(|x| x == &workspace_path)
+    {
         config.recent_projects.remove(pos);
     }
     config.recent_projects.insert(0, workspace_path.clone());
@@ -194,7 +206,9 @@ pub async fn create_project(
     }
 
     // Keep only last 10 projects and sort by last opened (newest first)
-    config.project_history.sort_by(|a, b| b.last_opened.cmp(&a.last_opened));
+    config
+        .project_history
+        .sort_by(|a, b| b.last_opened.cmp(&a.last_opened));
     if config.project_history.len() > 10 {
         config.project_history.truncate(10);
     }
@@ -224,8 +238,11 @@ async fn run_create_project_commands(
 
     // Determine workspace directory and project name
     let workspace_dir = Path::new(&workspace_path);
-    let workspace_parent = workspace_dir.parent().ok_or("无效的工作区路径".to_string())?;
-    let workspace_name = workspace_dir.file_name()
+    let workspace_parent = workspace_dir
+        .parent()
+        .ok_or("无效的工作区路径".to_string())?;
+    let workspace_name = workspace_dir
+        .file_name()
         .ok_or("无效的工作区路径")?
         .to_str()
         .ok_or("工作区名称包含无效字符")?;
@@ -233,13 +250,21 @@ async fn run_create_project_commands(
     // Source the virtual environment and run west init
     // On different platforms, the activation command is different
     #[cfg(target_os = "windows")]
-    let activate_cmd = format!("{} && ",
-        Path::new(&venv_path).join("Scripts").join("activate.bat").to_string_lossy()
+    let activate_cmd = format!(
+        "{} && ",
+        Path::new(&venv_path)
+            .join("Scripts")
+            .join("activate.bat")
+            .to_string_lossy()
     );
 
     #[cfg(not(target_os = "windows"))]
-    let activate_cmd = format!("source {} && ",
-        Path::new(&venv_path).join("bin").join("activate").to_string_lossy()
+    let activate_cmd = format!(
+        "source {} && ",
+        Path::new(&venv_path)
+            .join("bin")
+            .join("activate")
+            .to_string_lossy()
     );
 
     // Build west init command
@@ -249,7 +274,7 @@ async fn run_create_project_commands(
     );
 
     if shallow_clone {
-        init_cmd.push_str(" --clone-opt=--depth=15");
+        init_cmd.push_str(" --clone-opt=--filter=blob:none");
     }
 
     init_cmd.push_str(&format!(" {}", workspace_name));
@@ -272,7 +297,9 @@ async fn run_create_project_commands(
     init_command.stderr(Stdio::piped());
     init_command.env("TERM", "xterm");
 
-    let mut init_child = init_command.spawn().map_err(|e| format!("启动west init失败: {}", e))?;
+    let mut init_child = init_command
+        .spawn()
+        .map_err(|e| format!("启动west init失败: {}", e))?;
 
     let init_stdout = init_child.stdout.take().ok_or("Failed to open stdout")?;
     let init_stderr = init_child.stderr.take().ok_or("Failed to open stderr")?;
@@ -321,7 +348,9 @@ async fn run_create_project_commands(
         }
     });
 
-    let init_status = init_child.wait().map_err(|e| format!("等待west init完成失败: {}", e))?;
+    let init_status = init_child
+        .wait()
+        .map_err(|e| format!("等待west init完成失败: {}", e))?;
 
     if !init_status.success() {
         return Err("west init 失败".to_string());
@@ -332,7 +361,7 @@ async fn run_create_project_commands(
 
     let mut update_cmd = format!("{}west update", activate_cmd);
     if shallow_clone {
-        update_cmd.push_str(" --fetch-opt=--depth=15");
+        update_cmd.push_str(" --fetch-opt=--filter=blob:none");
     }
 
     emit_log(&app, &format!("正在更新项目: {}", update_cmd));
@@ -352,7 +381,9 @@ async fn run_create_project_commands(
     update_command.stderr(Stdio::piped());
     update_command.env("TERM", "xterm");
 
-    let mut update_child = update_command.spawn().map_err(|e| format!("启动west update失败: {}", e))?;
+    let mut update_child = update_command
+        .spawn()
+        .map_err(|e| format!("启动west update失败: {}", e))?;
 
     let update_stdout = update_child.stdout.take().ok_or("Failed to open stdout")?;
     let update_stderr = update_child.stderr.take().ok_or("Failed to open stderr")?;
@@ -401,7 +432,9 @@ async fn run_create_project_commands(
         }
     });
 
-    let update_status = update_child.wait().map_err(|e| format!("等待west update完成失败: {}", e))?;
+    let update_status = update_child
+        .wait()
+        .map_err(|e| format!("等待west update完成失败: {}", e))?;
 
     if !update_status.success() {
         return Err("west update 失败".to_string());
@@ -413,7 +446,10 @@ async fn run_create_project_commands(
 
 #[tauri::command]
 pub fn check_cmake_exists(workspace_path: String) -> Result<bool, String> {
-    let cmake_path = std::path::Path::new(&workspace_path).join("app").join("app").join("CMakeLists.txt");
+    let cmake_path = std::path::Path::new(&workspace_path)
+        .join("app")
+        .join("app")
+        .join("CMakeLists.txt");
     Ok(cmake_path.exists())
 }
 
@@ -430,8 +466,8 @@ pub fn detect_project_name(workspace_path: String) -> Result<String, String> {
     }
 
     // Read the file line by line
-    let file = File::open(&cmake_path)
-        .map_err(|e| format!("Failed to open CMakeLists.txt: {}", e))?;
+    let file =
+        File::open(&cmake_path).map_err(|e| format!("Failed to open CMakeLists.txt: {}", e))?;
     let reader = StdBufReader::new(file);
 
     for line in reader.lines() {
@@ -449,7 +485,10 @@ pub fn detect_project_name(workspace_path: String) -> Result<String, String> {
                 let project_name = content.trim();
 
                 // If there are additional parameters after the name, take just the first part
-                let name_part = project_name.split_whitespace().next().unwrap_or(project_name);
+                let name_part = project_name
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or(project_name);
 
                 return Ok(name_part.to_string());
             }
@@ -469,7 +508,11 @@ pub async fn open_project(
     let mut config = get_config(app.clone()).map_err(|e| format!("获取配置失败: {}", e))?;
 
     // Add project to recent projects and history
-    if let Some(pos) = config.recent_projects.iter().position(|x| x == &workspace_path) {
+    if let Some(pos) = config
+        .recent_projects
+        .iter()
+        .position(|x| x == &workspace_path)
+    {
         config.recent_projects.remove(pos);
     }
     config.recent_projects.insert(0, workspace_path.clone());
@@ -501,7 +544,9 @@ pub async fn open_project(
     }
 
     // Keep only last 10 projects and sort by last opened (newest first)
-    config.project_history.sort_by(|a, b| b.last_opened.cmp(&a.last_opened));
+    config
+        .project_history
+        .sort_by(|a, b| b.last_opened.cmp(&a.last_opened));
     if config.project_history.len() > 10 {
         config.project_history.truncate(10);
     }
@@ -533,6 +578,15 @@ pub fn delete_project_directory(path: String) -> Result<(), String> {
     // Recursively remove the entire directory and its contents
     fs::remove_dir_all(project_path)
         .map_err(|e| format!("Failed to delete project directory: {}", e))
+}
+
+#[tauri::command]
+pub fn get_home_dir() -> Result<String, String> {
+    let home_dir = dirs::home_dir()
+        .ok_or("无法获取用户主目录")?
+        .to_string_lossy()
+        .to_string();
+    Ok(home_dir)
 }
 
 fn get_config_path(app: &AppHandle) -> Result<PathBuf, String> {

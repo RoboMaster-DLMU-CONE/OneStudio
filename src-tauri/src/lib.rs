@@ -8,6 +8,7 @@ mod env_manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -31,6 +32,7 @@ pub fn run() {
             config_manager::detect_project_name,
             config_manager::check_cmake_exists,
             config_manager::delete_project_directory,
+            config_manager::get_home_dir,
             cmd_zephyr::install_zephyr
         ])
         .run(tauri::generate_context!())

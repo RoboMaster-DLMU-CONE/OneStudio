@@ -11,9 +11,13 @@ fn setup_pip_source(app: &AppHandle, install_path: &str, venv_python: &str) -> R
         app,
         venv_python,
         &[
-            "-m", "pip", "install",
-            "-i", "https://mirrors.ustc.edu.cn/pypi/simple",
-            "pip", "-U"
+            "-m",
+            "pip",
+            "install",
+            "-i",
+            "https://mirrors.ustc.edu.cn/pypi/simple",
+            "pip",
+            "-U",
         ],
         Some(install_path),
     )?;
@@ -24,9 +28,12 @@ fn setup_pip_source(app: &AppHandle, install_path: &str, venv_python: &str) -> R
         app,
         venv_python,
         &[
-            "-m", "pip", "config", "set",
+            "-m",
+            "pip",
+            "config",
+            "set",
             "global.index-url",
-            "https://mirrors.ustc.edu.cn/pypi/simple"
+            "https://mirrors.ustc.edu.cn/pypi/simple",
         ],
         Some(install_path),
     )?;
@@ -121,7 +128,7 @@ pub async fn install_zephyr(
     // 4. West init
     let mut init_args = vec!["init", "."];
     if shadow_clone {
-        init_args.push("--clone-opt=--depth=15");
+        init_args.push("--clone-opt=--filter=blob:none");
     }
     run_command_stream(&app, &venv_west_str, &init_args, Some(&install_path))?;
 
@@ -129,7 +136,7 @@ pub async fn install_zephyr(
     emit_log(&app, "Updating west modules (this may take a while)...");
     let mut update_args = vec!["update"];
     if shadow_clone {
-        update_args.push("--fetch-opt=--depth=15");
+        update_args.push("--fetch-opt=--filter=blob:none");
     }
     run_command_stream(&app, &venv_west_str, &update_args, Some(&install_path))?;
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { platform } from "@tauri-apps/plugin-os";
 import { Button } from "@/components/ui/button";
 import { open } from '@tauri-apps/plugin-shell';
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useProjectStore } from "@/store/useProjectStore";
 import { CheckCircle2, XCircle, AlertCircle, RefreshCw, FolderOpen, Terminal as TerminalIcon, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,6 +40,27 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
   const [sdkInstallPath, setSdkInstallPath] = useState("");
   const [shadowClone, setShadowClone] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  // Get platform-specific default install path
+  const [defaultInstallPath, setDefaultInstallPath] = useState("");
+
+  useEffect(() => {
+    const setDefaultPaths = async () => {
+      const platformName = platform();
+
+      if (platformName === "windows") {
+        // On Windows, use something like C:\Users\{username}\zephyrproject
+        const homeDir = await invoke<string>("get_home_dir");
+        setDefaultInstallPath(`${homeDir}\\zephyrproject`);
+      } else {
+        // On Unix-like systems, use ~/zephyrproject
+        setDefaultInstallPath("~/zephyrproject");
+      }
+    };
+
+    setDefaultPaths();
+  }, []);
 
   const runCheck = async () => {
     setChecking(true);
@@ -115,27 +145,35 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
   };
 
   const handleInstallZephyr = async () => {
-    if (!installPath) {
+    // Use default install path if user didn't provide one
+    const resolvedInstallPath = installPath || defaultInstallPath;
+    if (!resolvedInstallPath) {
       toast.error("请选择安装路径");
       return;
     }
+
     setInstalling(true);
     setShowTerminal(true);
     try {
       await invoke("install_zephyr", {
-        installPath,
-        sdkPath: sdkInstallPath || null,
+        installPath: resolvedInstallPath,
+        sdkPath: sdkInstallPath || null,  // SDK path can still be empty
         shadowClone
       });
       toast.success("安装完成！请手动配置路径。");
       // Auto-fill paths if successful
-      setZephyrPath(installPath + "/zephyr");
-      setVenvPath(installPath + "/.venv");
+      setZephyrPath(resolvedInstallPath + "/zephyr");
+      setVenvPath(resolvedInstallPath + "/.venv");
     } catch (e) {
       toast.error("安装失败: " + e);
     } finally {
       setInstalling(false);
     }
+  };
+
+  const handleConfirmedInstall = () => {
+    handleInstallZephyr();
+    setShowConfirmDialog(false);
   };
 
   return (
@@ -295,7 +333,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
                             <div className="flex gap-2">
                               <Input
                                 className="h-8 text-xs flex-grow"
-                                placeholder="选择空文件夹..."
+                                placeholder={defaultInstallPath || "选择空文件夹..."}
                                 value={installPath}
                                 onChange={(e) => setInstallPath(e.target.value)}
                               />
@@ -337,11 +375,11 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
                             variant="secondary"
                             size="sm"
                             className="w-full mt-2"
-                            onClick={handleInstallZephyr}
+                            onClick={() => setShowConfirmDialog(true)}
                             disabled={installing}
                           >
-                            {installing ? <RefreshCw className="mr-2 h-3 w-3 animate-spin" /> : <TerminalIcon className="mr-2 h-3 w-3" />}
-                            {installing ? "安装中..." : "开始安装 Zephyr"}
+                            <TerminalIcon className="mr-2 h-3 w-3" />
+                            开始安装 Zephyr
                           </Button>
                         </div>
                       </div>
@@ -369,6 +407,38 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
           </CardContent>
         </Tabs>
       </Card>
+      {/* Confirmation dialog for Zephyr installation */}
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认安装 Zephyr</DialogTitle>
+            <DialogDescription>
+              请确认您要开始安装 Zephyr。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <div className="font-medium">资源需求:</div>
+            <div>预计占用空间: {shadowClone ? '7' : '12'}GB</div>
+            <div>预计下载时间: {shadowClone ? '10' : '30'}分钟</div>
+            <div className="pt-2 text-sm text-muted-foreground">
+              注意: 请在下载过程中不要退出应用，否则可能导致安装失败。
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowConfirmDialog(false)}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleConfirmedInstall}
+            >
+              确认并开始安装
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
